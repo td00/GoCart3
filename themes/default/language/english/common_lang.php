@@ -34,6 +34,7 @@ $lang['home'] = 'Home';
 $lang['empty_view_cart'] = 'There are no products in your cart!';
 $lang['your_cart'] = 'Your Cart Summary';
 
+$lang['starting_at']  = 'Starting at';
 $lang['sale_price']  = 'Sale Price';
 $lang['on_sale'] = 'On Sale';
 $lang['related_products_title'] = 'You might also like...';
@@ -93,6 +94,7 @@ $lang['subcategories'] = 'Subcategories';
 $lang['edit_category'] = 'Edit Category';
 $lang['edit_product'] = 'Edit Product';
 $lang['error_product_not_found'] = 'The product could not be found.';
+$lang['load_more'] = 'Load More';
 
 $lang['loading'] = 'Loading&hellip;';
 $lang['remove'] = 'Remove';

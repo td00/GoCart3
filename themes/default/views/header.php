@@ -32,12 +32,14 @@ $_css->addFile('gumbo/nav');
 $_css->addFile('gumbo/colors');
 $_css->addFile('gumbo/tray');
 $_css->addFile('styles');
+$_css->addFile('animate');
 
 $_js = new JSCrunch();
 $_js->addFile('jquery');
 $_js->addFile('jquery.spin');
 $_js->addFile('gumbo');
 $_js->addFile('elementQuery.min');
+$_js->addFile('handlebars-v4.0.2');
 
 if(true) //Dev Mode
 {

@@ -16,6 +16,8 @@
     </div>
 </footer>
 
+<?php echo number_format((microtime(true) - $GLOBALS['start_time']), 4) . ' seconds'; ?>
+
 <script>
 setInterval(function(){
     resizeCategories();

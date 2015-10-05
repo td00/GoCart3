@@ -49,14 +49,7 @@
     <div class="col pull-right" data-cols="3/5" data-medium-cols="3/5">
         <div id="productAlerts"></div>
         <?php if(!$product->is_giftcard):?>
-            <div class="productPrice">
-            <?php if($product->saleprice > 0):?>
-                <small class="sale"><?php echo lang('on_sale');?></small>
-                <?php echo format_currency($product->saleprice);?>
-            <?php else:?>
-                <?php echo format_currency($product->price);?>
-            <?php endif;?>
-            </div>
+            <div class="productPrice" id="price"></div>
         <?php endif;?>
 
         <br class="clear">
@@ -71,8 +64,15 @@
             <input type="hidden" name="cartkey" value="<?php echo CI::session()->flashdata('cartkey');?>" />
             <input type="hidden" name="id" value="<?php echo $product->id?>"/>
 
-            <?php if(count($options) > 0): ?>
-                <?php foreach($options as $option):
+            <?php
+
+            $options = json_decode($product->options);
+            if(count($options) > 0):
+                
+                $optionCount = 0;
+
+                foreach($options as $option):
+                    
                     $required = '';
                     if($option->required)
                     {
@@ -88,19 +88,19 @@
                         if($option->type == 'checklist')
                         {
                             $value  = [];
-                            if($posted_options && isset($posted_options[$option->id]))
+                            if($posted_options && isset($posted_options[$optionCount]))
                             {
-                                $value  = $posted_options[$option->id];
+                                $value  = $posted_options[$optionCount];
                             }
                         }
                         else
                         {
-                            if(isset($option->values[0]))
+                            if(isset($option->values->{'1'}))
                             {
-                                $value  = $option->values[0]->value;
-                                if($posted_options && isset($posted_options[$option->id]))
+                                $value  = $option->values->{'1'}->value;
+                                if($posted_options && isset($posted_options[$optionCount]))
                                 {
-                                    $value  = $posted_options[$option->id];
+                                    $value  = $posted_options[$optionCount];
                                 }
                             }
                             else
@@ -110,21 +110,23 @@
                         }
 
                         if($option->type == 'textfield'):?>
-                            <input type="text" name="option[<?php echo $option->id;?>]" value="<?php echo $value;?>"/>
+                            <input type="text" name="option[<?php echo $optionCount;?>]" value="<?php echo $value;?>"/>
                         <?php elseif($option->type == 'textarea'):?>
-                            <textarea name="option[<?php echo $option->id;?>]"><?php echo $value;?></textarea>
+                            <textarea name="option[<?php echo $optionCount;?>]"><?php echo $value;?></textarea>
                         <?php elseif($option->type == 'droplist'):?>
-                            <select name="option[<?php echo $option->id;?>]">
+                            <select name="option[<?php echo $optionCount;?>]">
                                 <option value=""><?php echo lang('choose_option');?></option>
 
-                            <?php foreach ($option->values as $values):
+                            <?php
+                            $valueId = 1;
+                            foreach ($option->values as $values):
                                 $selected   = '';
-                                if($value == $values->id)
+                                if($value == $valueId)
                                 {
                                     $selected   = ' selected="selected"';
                                 }?>
 
-                                <option<?php echo $selected;?> value="<?php echo $values->id;?>">
+                                <option<?php echo $selected;?> value="<?php echo $valueId;?>">
                                     <?php if($product->is_giftcard):?>
                                         <?php echo($values->price != 0)?' (+'.format_currency($values->price).') ':''; echo lang($values->name);?>
                                     <?php else:?>
@@ -133,40 +135,54 @@
                                     
                                 </option>
 
-                            <?php endforeach;?>
+                                <?php
+                                $valueId++;
+                            endforeach;?>
                             </select>
                         <?php elseif($option->type == 'radiolist'):?>
-                            <label class="radiolist">
-                            <?php foreach ($option->values as $values):
+                            <div class="radiolist">
+                            <?php
+                            
+                            $valueId = 1;
+                            foreach ($option->values as $values):
 
                                 $checked = '';
-                                if($value == $values->id)
+                                if($value == $valueId)
                                 {
                                     $checked = ' checked="checked"';
                                 }?>
-                                <div>
-                                    <input<?php echo $checked;?> type="radio" name="option[<?php echo $option->id;?>]" value="<?php echo $values->id;?>"/>
+                                <label>
+                                    <input<?php echo $checked;?> type="radio" name="option[<?php echo $optionCount;?>]" value="<?php echo $valueId;?>"/>
                                     <?php echo($values->price != 0)?'(+'.format_currency($values->price).') ':''; echo $values->name;?>
-                                </div>
-                            <?php endforeach;?>
-                            </label>
+                                </label>
+                                <?php
+                                $valueId++;
+                            endforeach;?>
+                            </div>
                         <?php elseif($option->type == 'checklist'):?>
-                            <label class="checklist"<?php echo $required;?>>
-                            <?php foreach ($option->values as $values):
+                            <div class="checklist"<?php echo $required;?>>
+                            <?php
+                            $valueId = 1;
+                            foreach ($option->values as $values):
 
                                 $checked = '';
-                                if(in_array($values->id, $value))
+                                if(in_array($valueId, $value))
                                 {
                                     $checked = ' checked="checked"';
                                 }?>
-                                <div><input<?php echo $checked;?> type="checkbox" name="option[<?php echo $option->id;?>][]" value="<?php echo $values->id;?>"/>
-                                <?php echo($values->price != 0 && $option->name != 'Buy a Sample')?'('.format_currency($values->price).') ':''; echo $values->name;?></div>
-                            <?php endforeach; ?>
-                            </label>
+                                <label><input<?php echo $checked;?> type="checkbox" name="option[<?php echo $optionCount;?>][]" value="<?php echo $valueId;?>"/>
+                                <?php echo($values->price != 0 && $option->name != 'Buy a Sample')?'('.format_currency($values->price).') ':''; echo $values->name;?></label>
+                                
+                                <?php
+                                $valueId++;
+                            endforeach; ?>
+                            </div>
                         <?php endif;?>
                         </div>
                     </div>
-                <?php endforeach;?>
+                    <?php
+                    $optionCount++;
+                endforeach;?>
             <?php endif;?>
 
             <div class="text-right">
@@ -175,7 +191,7 @@
                 <?php if(!$product->fixed_quantity) : ?>
 
                         <strong>Quantity&nbsp;</strong>
-                        <input type="text" name="quantity" value="1" style="width:50px; display:inline"/>&nbsp;
+                        <input type="number" min="1" name="quantity" value="1" style="width:80px; display:inline"/>&nbsp;
                         <button class="blue" type="button" value="submit" onclick="addToCart($(this));"><i class="icon-cart"></i> <?php echo lang('form_add_to_cart');?></button>
                 <?php else: ?>
                         <button class="blue" type="button" value="submit" onclick="addToCart($(this));"><i class="icon-cart"></i> <?php echo lang('form_add_to_cart');?></button>
@@ -196,7 +212,6 @@
 
 
 <script>
-
     function addToCart(btn)
     {
         $('.productDetails').spin();
@@ -219,10 +234,51 @@
         }, 'json');
     }
 
+    var pricing = <?php echo json_encode($product->pricing);?>
+    
+    var quantity = $('[name="quantity"]');
     var banners = false;
+
     $(document).ready(function(){
         banners = $('#banners').html();
-    })
+
+        quantity.on('keyup change', function(){
+            updatePrice();
+        });
+        //run by default
+        updatePrice();
+
+    });
+
+    function updatePrice()
+    {
+        var price = 0;
+        var qty = 1;
+        if(quantity.length > 0)
+        {
+            qty = quantity.val();
+        }
+        if(qty == 0)
+        {
+            qty = 1;
+        }
+
+        $.each(pricing, function(key, val) {
+            if(qty >= parseInt(val.from_quantity))
+            {
+                if(val.sale_price_val > 0)
+                {
+                    price = val.sale_price;
+                }
+                else
+                {
+                    price = val.price;
+                }
+            }
+        });
+
+        $('#price').text(price);
+    }
 
     $('.productImages img').click(function(){
         if(banners)

@@ -1,6 +1,5 @@
 <?php echo pageHeader(lang('product_form')); ?>
 
-<?php $GLOBALS['optionValueCount'] = 0;?>
 <style type="text/css">
     .sortable { list-style-type: none; margin: 0; padding: 0; width: 100%; }
     .sortable li { margin: 0 3px 3px 3px; padding: 0.4em; padding-left: 1.5em; height: 18px; }
@@ -13,6 +12,7 @@
             <div class="tabbable">
                 <ul class="nav nav-tabs">
                     <li class="active"><a href="#product_info" data-toggle="tab"><?php echo lang('details');?></a></li>
+                    <li><a href="#product_pricing" data-toggle="tab"><?php echo lang('pricing');?></a></li>
                     <?php //if there aren't any files uploaded don't offer the client the tab
                     if (count($file_list) > 0):?>
                     <li><a href="#product_downloads" data-toggle="tab"><?php echo lang('digital_content');?></a></li>
@@ -86,6 +86,36 @@
                             </div>
                         </div>
                     </fieldset>
+                </div>
+
+                <div class="tab-pane" id="product_pricing">
+                    <?php foreach($groups as $group):?>
+                        <fieldset>
+                            <legend>
+                                <?php echo $group->name;?>
+                                <div class="checkbox pull-right" style="font-size:16px; margin-top:5px;">
+                                    <label>
+                                        <?php echo form_checkbox('enabled_'.$group->id, 1, ${'enabled_'.$group->id}); ?> <?php echo lang('enabled');?>
+                                    </label>
+                                </div>
+                            </legend>
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th><?php echo lang('from_quantity');?></th>
+                                        <th><?php echo lang('price');?></th>
+                                        <th><?php echo lang('sale_price');?></th>
+                                        <th style="width:16px;">
+                                            <button onclick="addPricingRow(<?php echo $group->id;?>)" type="button" class="btn"><i class="icon-plus"></i></button>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pricingTables-<?php echo $group->id;?>">
+
+                                </tbody>
+                            </table>
+                        </fieldset>
+                    <?php endforeach;?>
                 </div>
 
                 <div class="tab-pane" id="product_downloads">
@@ -172,7 +202,7 @@
                 </div>
 
                 <div class="tab-pane" id="ProductOptions">
-
+                    <?php echo form_hidden('options', assign_value('options', $options));?>
                     <div class="row" style="margin-bottom:15px;">
                         <div class="col-md-5 col-md-offset-7">
                             <div class="input-group">
@@ -215,10 +245,7 @@
                         }
                     </style>
 
-                    <table class="table table-striped">
-                        <tbody id="optionsContainer">
-                        </tbody>
-                    </table>
+                    <div id="optionsContainer"></div>
 
                 </div>
 
@@ -300,31 +327,27 @@
                 <?php echo form_input(['name'=>'weight', 'value'=>assign_value('weight', $weight), 'class'=>'form-control']);?>
             </div>
 
-            <?php foreach($groups as $group):?>
-                <fieldset>
-                    <legend>
-                        <?php echo $group->name;?>
-                        <div class="checkbox pull-right" style="font-size:16px; margin-top:5px;">
-                            <label>
-                                <?php echo form_checkbox('enabled_'.$group->id, 1, ${'enabled_'.$group->id}); ?> <?php echo lang('enabled');?>
-                            </label>
-                        </div>
-                    </legend>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <label for="price"><?php echo lang('price');?></label>
-                            <?php echo form_input(['name'=>'price_'.$group->id, 'value'=>assign_value('price_'.$group->id, ${'price_'.$group->id}), 'class'=>'form-control']);?>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="saleprice"><?php echo lang('saleprice');?></label>
-                            <?php echo form_input(['name'=>'saleprice_'.$group->id, 'value'=>assign_value('saleprice_'.$group->id, ${'saleprice_'.$group->id}), 'class'=>'form-control']);?>
-                        </div>
-                    </div>
-                </fieldset>
-            <?php endforeach;?>
         </div>
     </div>
 </form>
+
+<script type="text/template" id="pricingTemplate">
+    <tr>
+        <td>
+            <input type="hidden" name="pricing[{{id}}][group_id]" value="{{group_id}}"/>
+            <input type="number" step="1" name="pricing[{{id}}][from_quantity]" value="{{from_quantity}}"/>
+        </td>
+        <td>
+            <input type="number" step=".01" name="pricing[{{id}}][price]" value="{{price}}"/>
+        </td>
+        <td>
+            <input type="number" step=".01" name="pricing[{{id}}][sale_price]" value="{{sale_price}}"/>
+        </td>
+        <td class="text-right">
+            <a class="btn btn-danger" href="#" onclick="removePricingRow($(this)); return false;"><i class="icon-times"></i></a>
+        </td>
+    </tr>
+</script>
 
 <script type="text/template" id="relatedItemsTemplate">
     <tr id="related_product_{{id}}">
@@ -373,68 +396,81 @@
 </script>
 
 <script type="text/template" id="optionTemplate">
-    <tr id="option-{{id}}">
-        <td>
-            <a class="handle1 btn btn-primary btn-sm"><i class="icon-sort"></i></a>
-            <strong><a class="optionTitle" href="#option-form-{{id}}">{{type}} : {{name}}</a></strong>
-            <button type="button" class="btn btn-danger btn-sm pull-right" onclick="remove_option({{id}});"><i class="icon-times"></i></button>
-            <input type="hidden" name="option[{{id}}][type]" value="{{type}}" />
+    <div data-option="option">
+        <h3>{{ type }}</h3>
+        <div class="row">
+            <div class="col-md-1">
+                <a class="handle1 btn btn-default"><i class="icon-sort"></i></a>
+                <input type="hidden" data-option="type" value="{{ type }}" />
+            </div>
 
-            <div class="option-form" id="option-form-{{id}}">
-                <div class="row">
-                    <div class="col-md-10">
-                        <input type="text" class="form-control" placeholder="<?php echo lang('option_name');?>" name="option[{{id}}][name]" value="{{name}}"/>
-                    </div>
-                    <div class="col-md-2" style="text-align:right;">
-                        <div class="checkbox">
-                            <label>
-                                <input class="checkbox" type="checkbox" name="option[{{id}}][required]" value="1" {{#required}} checked="checked" {{/required}}/> <?php echo lang('required');?>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                
-                {{^isText}}
-                <a class="btn btn-primary" onclick="addOptionValue({{id}});"><?php echo lang('add_item');?></a>
-                {{/isText}}
-                
-                <div style="margin-top:10px;">
-                    <div class="row">
-                        {{^isText}}<div class="col-md-1">&nbsp;</div>{{/isText}}
-                        <div class="col-md-3"><strong>&nbsp;&nbsp;<?php echo lang('name');?></strong></div>
-                        <div class="col-md-2"><strong>&nbsp;<?php echo lang('value');?></strong></div>
-                        <div class="col-md-2"><strong>&nbsp;<?php echo lang('weight');?></strong></div>
-                        <div class="col-md-2"><strong>&nbsp;<?php echo lang('price');?></strong></div>
-                        {{#isText}}<div class="col-md-2"><strong>&nbsp;<?php echo lang('limit');?></strong></div>{{/isText}}
-                    </div>
+            <div class="col-md-10">
+                <div class="input-group">
+                    <span class="input-group-addon">
+                        <input type="checkbox" data-option="required" value="1" {{#required}} checked="checked" {{/required}}/> <?php echo lang('required');?>
+                    </span>
 
-                    <div class="optionItems" id="optionItems-{{id}}"></div>
+                    <input type="text" class="form-control" placeholder="<?php echo lang('option_name');?>" data-option="name" value="{{ name }}"/>
+
+                    {{^isText}}
+                        <span class="input-group-btn">
+                            <button type="button" class="btn btn-default" onclick="addOptionValue($(this).closest('[data-option=\'option\']'));"><?php echo lang('add_item');?></button>
+                        </span>
+                    {{/isText}}
+
                 </div>
             </div>
-        </td>
-    </tr>
+
+            <div class="col-md-1">
+                <button type="button" class="btn btn-danger pull-right" onclick="deleteOption(this);"><i class="icon-times"></i></button>
+            </div>
+
+        </div>
+        
+        <br>
+        <div class="row">
+            <div class="col-md-11 col-md-offset-1">
+                <div class="row">
+                    {{^isText}}<div class="col-md-1">&nbsp;</div>{{/isText}}
+                    <div class="col-md-3"><strong>&nbsp;&nbsp;<?php echo lang('name');?></strong></div>
+                    <div class="col-md-3"><strong>&nbsp;<?php echo lang('value');?></strong></div>
+                    <div class="col-md-2"><strong>&nbsp;<?php echo lang('weight');?></strong></div>
+                    <div class="col-md-2"><strong>&nbsp;<?php echo lang('price');?></strong></div>
+                    {{#isText}}<div class="col-md-2"><strong>&nbsp;<?php echo lang('limit');?></strong></div>{{/isText}}
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div data-option="option.values" class="col-md-11 col-md-offset-1"></div>
+
+            </div>
+        </div>
+        
 </script>
 
 <script type="text/template" id="optionValueTemplate">
-    <div class="optionValuesForm">
-        <div class="row">
-            
-            {{^isText}}
-                <div class="col-md-1"><a class="handle2 btn btn-primary btn-sm" style="float:left;"><i class="icon-sort"></i></a></div>
-            {{/isText}}
+    <div class="row" data-option="option.value">
+        
+        {{^isText}}
+            <div class="col-md-1"><a class="handle2 btn btn-default btn-sm"><i class="icon-sort"></i></a></div>
+        {{/isText}}
 
-            <div class="col-md-3"><input type="text" class="form-control input-sm" name="option[{{id}}][values][{{valId}}][name]" value="{{name}}" /></div>
-            <div class="col-md-2"><input type="text" class="form-control input-sm" name="option[{{id}}][values][{{valId}}][value]" value="{{value}}" /></div>
-            <div class="col-md-2"><input type="text" class="form-control input-sm" name="option[{{id}}][values][{{valId}}][weight]" value="{{weight}}" /></div>
-            <div class="col-md-2"><input type="text" class="form-control input-sm" name="option[{{id}}][values][{{valId}}][price]" value="{{price}}" /></div>
-            <div class="col-md-2">
-                {{#isText}}
-                    <input class="form-control" type="text" name="option[{{id}}][values][{{valId}}][limit]" value="{{limit}}" />
-                {{/isText}}
-                {{^isText}}
-                    <a class="deleteOptionValue btn btn-danger btn-sm pull-right"><i class="icon-times"></i></a>
-                {{/isText}}
-            </div>
+        <div class="col-md-3"><input type="text" class="form-control input-sm" data-option="value.name" value="{{ name }}"/></div>
+        <div class="col-md-3"><input type="text" class="form-control input-sm" data-option="value.value" value="{{ value }}" /></div>
+        <div class="col-md-2"><input type="text" class="form-control input-sm" data-option="value.weight" value="{{ weight }}" /></div>
+        <div class="col-md-2"><input type="text" class="form-control input-sm" data-option="value.price" value="{{ price }}" /></div>
+        
+            {{#isText}}
+                <div class="col-md-2">
+                    <input class="form-control" type="text" data-option="value.limit" value="{{ limit }}" />
+                </div>
+            {{/isText}}
+            {{^isText}}
+                <div class="col-md-1 text-right">
+                    <a class="btn btn-danger btn-sm" onclick="deleteOptionValue(this)"><i class="icon-times"></i></a>
+                </div>
+            {{/isText}}
         </div>
     </div>
 </script>
@@ -450,23 +486,19 @@ var optionAddValueButtonTemplate = $('#optionTextButtonTemplate').html();
 var optionTemplate = $('#optionTemplate').html();
 var optionValueTemplate = $('#optionValueTemplate').html();
 
-var optionCount = 0;
-var optionValueCount = 0;
-var options = <?php echo json_encode($productOptions);?>
+var options = <?php echo $options;?>
+
+var pricingTemplate = $('#pricingTemplate').html();
+var pricingCount = 0;
+var pricing = <?php echo json_encode($pricing);?>
 
 $(document).ready(function() {
 
     optionsSortable();
     optionValuesSortable();
 
-    $('body').on('click', '.optionTitle', function(){
-        $($(this).attr('href')).slideToggle();
-        return false;
-    }).on('click', '.deleteOptionValue', function(){
-        if(confirm('<?php echo lang('confirm_remove_value');?>'))
-        {
-            $(this).closest('.optionValuesForm').remove();
-        }
+    $.each(pricing, function(key,val){
+        addPricingRow(val.group_id, val.from_quantity, val.price, val.sale_price);
     });
 
     $(".sortable").sortable();
@@ -493,6 +525,8 @@ $(document).ready(function() {
         addOption(val.type, val.name, isText, val.required, val.values);
     });
 
+    setOptionBinding();
+
     $( "#addOption" ).click(function(){
         var type = $('#optionTypes').val();
 
@@ -509,38 +543,117 @@ $(document).ready(function() {
     });
 });
 
+function deleteOptionValue(elem) {
+    if(confirm('<?php echo lang('confirm_remove_value');?>'))
+    {
+        $(elem).closest('[data-option="option.value"]').remove();    
+        generateOptionsObject();
+    }
+}
+
+function deleteOption(elem) {
+    if(confirm('<?php echo lang('confirm_remove_option');?>'))
+    {
+        $(elem).closest('[data-option="option"]').remove();    
+        generateOptionsObject();
+    }
+}
+
+function setOptionBinding()
+{
+    $('#optionsContainer').on('change', '[data-option]', function(){
+        generateOptionsObject();
+    });
+}
+
+function generateOptionsObject()
+{
+    //reset the options object
+    options = {};
+    var optionKey = 1;
+    $('[data-option="option"]').each(function(){
+
+        var option = {
+            'name': $(this).find('[data-option="name"]').val(),
+            'required': $(this).find('[data-option="required"]').is(':checked'),
+            'type': $(this).find('[data-option="type"]').val(),
+            'values': {}
+        }
+        var valueKey = 1;
+        $(this).find('[data-option="option.value"]').each(function(){
+            var value = {
+                'name': $(this).find('[data-option="value.name"]').val(),
+                'value': $(this).find('[data-option="value.value"]').val(),
+                'weight': $(this).find('[data-option="value.weight"]').val(),
+                'price': $(this).find('[data-option="value.price"]').val()
+            }
+
+            if($(this).find('[data-option="value.limit"]').length)
+            {
+                value.limit = $(this).find('[data-option="value.limit"]').val()
+            }
+            option.values[valueKey] = value;
+            valueKey++;
+
+        });
+
+        options[optionKey] = option;
+        optionKey++;
+    });
+
+    $('[name="options"]').val(JSON.stringify(options));
+    //console.log(options);
+}
+
+function addPricingRow(group_id, from, price, sale_price) {
+    
+    //increase the pricing count.
+    pricingCount++;
+
+    var view = {}
+    view.group_id = group_id;
+    view.from_quantity = ((from == undefined) ? 0 : from);
+    view.price = ((price == undefined) ? false : price);
+    view.sale_price = ((sale_price == undefined) ? false : sale_price);
+    view.id = pricingCount;
+
+    var output = Mustache.render(pricingTemplate, view);
+
+    $('#pricingTables-'+group_id).append(output);
+}
+
+function removePricingRow(elem)
+{
+    if(confirm('<?php echo lang('confirm_price_removal');?>'))
+    {
+        elem.closest('tr').remove();
+    }
+}
+
 function addOption(type, name, isText, required, values)
 {
-    //increase optionCount by 1
-    optionCount++;
-
     var view = {
-        id:optionCount,
         type:type,
         name:name,
         isText:isText,
-        required:parseInt(required)
+        required:required
     }
 
-    var output = Mustache.render(optionTemplate, view);
-
-    $('#optionsContainer').append(output);
+    var output = $(Mustache.render(optionTemplate, view));
 
     $.each(values, function(key,val) {
-        addOptionValue(optionCount, val.name, val.value, val.weight, val.price, val.limit, isText);
+        addOptionValue(output, val.name, val.value, val.weight, val.price, val.limit, isText);
     });
+
+    $('#optionsContainer').append(output);
     
     optionsSortable();
 }
 
-function addOptionValue(id, name, value, weight, price, limit, isText)
+function addOptionValue(parent, name, value, weight, price, limit, isText)
 {
-
-    optionValueCount++;
     
     var view = {
-        valId:optionValueCount,
-        id:id,
         name:name,
         value:value,
         weight:weight,
@@ -550,7 +663,7 @@ function addOptionValue(id, name, value, weight, price, limit, isText)
     }
     
     var output = Mustache.render(optionValueTemplate, view);
-    $('#optionItems-'+id).append(output);
+    $(parent).find('[data-option="option.values"]').append(output);
 
     optionValuesSortable();
 }
@@ -596,20 +709,27 @@ function optionsSortable()
 {
     $('#optionsContainer').sortable({
         axis: "y",
-        items:'tr',
+        items:'[data-option="option"]',
         handle:'.handle1',
         forceHelperSize: true,
-        forcePlaceholderSize: true
+        forcePlaceholderSize: true,
+        update:function(){
+            generateOptionsObject();
+        }
     });
 }
 
 function optionValuesSortable()
 {
-    $('.optionItems').sortable({
+    $('[data-option="option.values"]').sortable({
         axis: "y",
+        items:'.row',
         handle:'.handle2',
         forceHelperSize: true,
-        forcePlaceholderSize: true
+        forcePlaceholderSize: true,
+        update:function(){
+            generateOptionsObject();
+        }
     });
 }
 
@@ -681,9 +801,19 @@ function photos_sortable()
 }
 
 </script>
-<style>
+<style type="text/css">
 .tree > ul > li {
     float: left;
     width: 50%;
+}
+[data-option="option"] {
+    background-color:#fff;
+    padding:15px;
+    border:1px solid #eee;
+    border-radius:3px;
+    margin-bottom:15px;
+}
+[data-option="option.values"] > .row {
+    margin-top:10px;
 }
 </style>

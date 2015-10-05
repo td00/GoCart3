@@ -125,11 +125,26 @@ foreach ($order->items as $item)
                     <?php echo (!empty($product->sku))?'<small>'.lang('sku').': '.$product->sku.'</small>':''?>
                 </td>
                 <td>
-                    <?php if(isset($order->options[$product->id])):
-                        foreach($order->options[$product->id] as $option):?>
-                            <div><strong><?php echo ($product->is_giftcard) ? lang('gift_card_'.$option->option_name) : $option->option_name;?></strong> : <?php echo $option->value;?></div>
-                        <?php endforeach;
-                    endif;?>
+                    <?php
+                    $options = json_decode($product->options);
+                    foreach($options as $option):?>
+                        <div>
+                            <strong>
+                            <?php
+                            if($product->is_giftcard)
+                            {
+                                echo lang('gift_card_'.$option->label);
+                            }
+                            else
+                            {
+                                echo $option->label;
+                            }
+
+                            echo '</strong> : '.$option->value.' ';
+                            echo($option->price > 0)?'['.format_currency($option->price).']':'';?>
+
+                        </div>
+                    <?php endforeach;?>
                 </td>
             </tr>
         <?php endforeach; ?>

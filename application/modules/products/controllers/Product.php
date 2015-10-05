@@ -30,9 +30,6 @@ class Product extends Front {
                 $product->images = [];
             }
 
-            //set product options
-            $data['options'] = \CI::ProductOptions()->getProductOptions($product->id);
-
             $data['posted_options'] = \CI::session()->flashdata('option_values');
 
             //get related items

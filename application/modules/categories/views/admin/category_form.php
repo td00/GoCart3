@@ -45,6 +45,11 @@
         <?php endforeach;?>
 
         <div class="form-group">
+            <label><?php echo lang('template');?></label>
+            <?php echo form_dropdown('template', $templates, $template, 'class="form-control"'); ?>
+        </div>
+        
+        <div class="form-group">
             <label for="parent_id"><?php echo lang('parent');?> </label>
             <?php echo form_dropdown('parent_id', $categories, $parent_id, 'class="form-control"'); ?>
         </div>
@@ -68,7 +73,6 @@
             <?php echo form_textarea(['rows'=>3, 'name'=>'meta', 'value'=>assign_value('meta', html_entity_decode($meta)), 'class'=>'form-control']); ?>
             <span class="help-block"><?php echo lang('meta_data_description');?></span>
         </div>
-        
 
     </div>
 </div>

@@ -22,8 +22,11 @@ $lang['in'] = 'In';
 $lang['main'] = 'Main';
 $lang['disabled'] = 'Disabled';
 $lang['excerpt'] = 'Excerpt';
+$lang['pricing'] = 'Pricing';
+$lang['from_quantity'] = 'Quantity';
+$lang['group'] = 'Group';
 $lang['price'] = 'Price';
-$lang['saleprice'] = 'Sale Price';
+$lang['sale_price'] = 'Sale Price';
 $lang['weight'] = 'Weight';
 $lang['attributes'] = 'Attributes';
 $lang['categories'] = 'Categories';
@@ -80,6 +83,7 @@ $lang['add_related_product'] = 'Add Related Product';
 $lang['product_name'] = 'Product Name';
 
 //giftcards products
+$lang['giftcard_form'] = 'Giftcard Form';
 $lang['add_new_giftcard_product'] = 'Add Giftcard';
 $lang['giftcard_product_form'] = 'Giftcard Product';
 $lang['giftcard_values'] = 'Predefined Values';
@@ -98,6 +102,7 @@ $lang['confirm_remove_option'] = 'Are you sure you want to remove this option?';
 $lang['confirm_remove_related'] = 'Are you sure you want to remove this related item?';
 $lang['confirm_remove_category']= 'Are you sure you want to remove this category?';
 $lang['confirm_delete_product'] = 'Are you sure you want to delete this product?';
+$lang['confirm_price_removal'] = 'Are you sure you want to remove this price?';
 
 //alerts
 $lang['alert_must_name_option'] = 'You must give this option a name.';

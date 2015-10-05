@@ -98,13 +98,24 @@
                 <div class="col" data-cols="4/5">
                     <?php echo (!empty($product->sku))?'<div class="cartItemSku">'.lang('sku').': '.$product->sku.'</div>':''?>
                     <?php
-                    if(isset($options[$product->id]))
-                    {
-                        foreach($options[$product->id] as $option):?>
-                            <div class="cartItemOption"><?php echo ($product->is_giftcard) ? lang('gift_card_'.$option->option_name) : $option->option_name;?> : <?php echo($option->price > 0)?'['.format_currency($option->price).']':'';?> <?php echo $option->value;?></div>
-                        <?php endforeach;
-                    }
-                    ?>
+                    $options = json_decode($product->options);
+                    foreach($options as $option):?>
+                        <div class="cartItemOption">
+                            <?php
+                            if($product->is_giftcard)
+                            {
+                                echo lang('gift_card_'.$option->label);
+                            }
+                            else
+                            {
+                                echo $option->label;
+                            }
+
+                            echo ': '.$option->value.' ';
+                            echo($option->price > 0)?'['.format_currency($option->price).']':'';?>
+
+                        </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
             <div class="col-nest">

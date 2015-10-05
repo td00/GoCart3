@@ -11,43 +11,44 @@
 
 class Category extends Front {
 
-    public function index($slug, $sort='id', $dir="ASC", $page=0) {
+    public function index($slug) {
 
         \CI::lang()->load('categories');
-        //define the URL for pagination
-        $pagination_base_url = site_url('category/'.$slug.'/'.$sort.'/'.$dir);
 
-        //how many products do we want to display per page?
-        //this is configurable from the admin settings page.
-        $per_page = config_item('products_per_page');
-
-        //grab the categories
-        $categories = \CI::Categories()->get($slug, $sort, $dir, $page, $per_page);
+        $category = \CI::Categories()->slug($slug);
 
         //no category? show 404
-        if(!$categories)
+        if(!$category)
         {
             throw_404();
             return;
         }
 
-        $categories['sort'] = $sort;
-        $categories['dir'] = $dir;
-        $categories['slug'] = $slug;
-        $categories['page'] = $page;
-        
-        //load up the pagination library
-        \CI::load()->library('pagination');
-        $config['base_url'] = $pagination_base_url;
-        $config['uri_segment'] = 5;
-        $config['per_page'] = $per_page;
-        $config['num_links'] = 3;
-        $config['total_rows'] = $categories['total_products'];
+        $this->view('categories/'.$category->template, ['category'=>$category]);
+    }
 
-        \CI::pagination()->initialize($config);
+    public function products($count = false)
+    {
+        $customer = \CI::Login()->customer();
 
-        //load the view
-        $this->view('categories/category', $categories);
+        $params = [
+            'category_id'=>\CI::input()->post('categoryId'),
+            'order_by'=>\CI::input()->post('orderBy'),
+            'sort_order'=>\CI::input()->post('sortOrder'),
+            'rows'=>\CI::input()->post('rows'),
+            'page'=>(intval(\CI::input()->post('page'))-1) * intval(\CI::input()->post('rows')),
+            'enabled_'.$customer->group_id=>1,
+            'product_pricing.group_id'=>$customer->group_id
+            ];
+
+        $products = \CI::Products()->products($params, $count);
+
+        echo json_encode($products);
+    }
+
+    public function countProducts()
+    {
+        $this->products(true);
     }
 
     public function shortcode($slug = false, $perPage = false)

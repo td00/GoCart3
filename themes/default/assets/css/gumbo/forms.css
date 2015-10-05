@@ -4,10 +4,15 @@ label {
     font-weight: bold;
 }
 
-label.checklist, label.radiolist {
+div.checklist, div.radiolist {
     margin-bottom:15px;
     line-height:1.4em;
     font-weight:bold;
+}
+
+div.checklist label, div.radiolist label {
+    font-weight:normal;
+    margin-bottom:0px;
 }
 
 input[type="search"] {

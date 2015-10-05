@@ -53,10 +53,10 @@ class AdminProducts extends Admin {
         $data['rows'] = $rows;
         $data['page'] = $page;
 
-        $data['products'] = \CI::Products()->products(array('term'=>$term, 'order_by'=>$order_by, 'sort_order'=>$sort_order, 'rows'=>$rows, 'page'=>$page));
+        $data['products'] = \CI::Products()->productsAdmin(array('term'=>$term, 'order_by'=>$order_by, 'sort_order'=>$sort_order, 'rows'=>$rows, 'page'=>$page));
 
         //total number of products
-        $data['total'] = \CI::Products()->products(array('term'=>$term, 'order_by'=>$order_by, 'sort_order'=>$sort_order), true);
+        $data['total'] = \CI::Products()->productsAdmin(array('term'=>$term, 'order_by'=>$order_by, 'sort_order'=>$sort_order), true);
 
 
         \CI::load()->library('pagination');
@@ -142,7 +142,6 @@ class AdminProducts extends Admin {
     {
         $this->product_id = $id;
         \CI::load()->library('form_validation');
-        \CI::load()->model(array('ProductOptions', 'Categories', 'DigitalProducts', 'Customers'));
         \CI::lang()->load('digital_products');
         \CI::form_validation()->set_error_delimiters('<div class="error">', '</div>');
 
@@ -173,15 +172,13 @@ class AdminProducts extends Admin {
         $data['product_categories'] = [];
         $data['images'] = [];
         $data['product_files'] = [];
-        $data['productOptions'] = [];
+        $data['options'] = '{}';
+        $data['pricing'] = [];
 
         foreach($data['groups'] as $group)
         {
             $data['enabled_'.$group->id] = '';
-            $data['price_'.$group->id] = '';
-            $data['saleprice_'.$group->id] = '';
         }
-        
 
         //create the photos array for later use
         $data['photos'] = [];
@@ -195,8 +192,7 @@ class AdminProducts extends Admin {
                 $data['product_files'][]  = $f->file_id;
             }
 
-            // get product & options data
-            $data['productOptions'] = \CI::ProductOptions()->getProductOptions($id);
+            // get product
             $product = \CI::Products()->find($id, true);
 
             //if the product does not exist, redirect them to the product list with an error
@@ -219,34 +215,30 @@ class AdminProducts extends Admin {
             $data['slug'] = $product->slug;
             $data['description'] = $product->description;
             $data['excerpt'] = $product->excerpt;
-            
             $data['weight'] = $product->weight;
             $data['track_stock'] = $product->track_stock;
             $data['shippable'] = $product->shippable;
             $data['quantity'] = $product->quantity;
             $data['taxable'] = $product->taxable;
             $data['fixed_quantity'] = $product->fixed_quantity;
+            $data['options'] = (empty($product->options))?'{}':$product->options;
 
             foreach($data['groups'] as $group)
             {
                 $data['enabled_'.$group->id] = $product->{'enabled_'.$group->id};
-                $data['price_'.$group->id] = $product->{'price_'.$group->id};
-                $data['saleprice_'.$group->id] = $product->{'saleprice_'.$group->id};
             }
+
+            $data['pricing'] = $product->pricing;
 
             //make sure we haven't submitted the form yet before we pull in the images/related products from the database
-            if(!\CI::input()->post('submit'))
+            $data['product_categories'] = [];
+            foreach($product->categories as $product_category)
             {
-
-                $data['product_categories'] = [];
-                foreach($product->categories as $product_category)
-                {
-                    $data['product_categories'][] = $product_category->id;
-                }
-
-                $data['related_products'] = $product->related_products;
-                $data['images'] = (array)json_decode($product->images);
+                $data['product_categories'][] = $product_category->id;
             }
+
+            $data['related_products'] = $product->related_products;
+            $data['images'] = (array)json_decode($product->images);
         }
 
         //if $data['related_products'] is not an array, make it one.
@@ -277,12 +269,11 @@ class AdminProducts extends Admin {
         \CI::form_validation()->set_rules('shippable', 'lang:shippable', 'trim|numeric');
         \CI::form_validation()->set_rules('taxable', 'lang:taxable', 'trim|numeric');
         \CI::form_validation()->set_rules('fixed_quantity', 'lang:fixed_quantity', 'trim|numeric');
+        \CI::form_validation()->set_rules('options', 'lang:product_options');
 
         foreach($data['groups'] as $group)
         {
             \CI::form_validation()->set_rules('enabled_'.$group->id, lang('enabled').'('.$group->name.')', 'trim|numeric');
-            \CI::form_validation()->set_rules('price_'.$group->id, lang('price').'('.$group->name.')', 'trim|numeric|floatval');
-            \CI::form_validation()->set_rules('saleprice_'.$group->id, lang('saleprice').'('.$group->name.')', 'trim|numeric|floatval');
         }
 
         /*
@@ -299,13 +290,12 @@ class AdminProducts extends Admin {
         }
         if(\CI::input()->post('submit'))
         {
-            //reset the product options that were submitted in the post
-            $data['ProductOptions'] = \CI::input()->post('option');
             $data['related_products'] = \CI::input()->post('related_products');
             $data['product_categories'] = \CI::input()->post('categories');
             $data['images'] = \CI::input()->post('images');
             $data['product_files'] = \CI::input()->post('downloads');
-
+            $data['pricing'] = \CI::input()->post('pricing');
+            $data['options'] = (\CI::input()->post('options'))?\CI::input()->post('options'):'{}';
         }
 
         if (\CI::form_validation()->run() == FALSE)
@@ -330,7 +320,6 @@ class AdminProducts extends Admin {
             //validate the slug
             $slug = ($id) ? \CI::Products()->validate_slug($slug, $product->id) : \CI::Products()->validate_slug($slug);
 
-
             $save['id'] = $id;
             $save['sku'] = \CI::input()->post('sku');
             $save['name'] = \CI::input()->post('name');
@@ -344,14 +333,13 @@ class AdminProducts extends Admin {
             $save['quantity'] = \CI::input()->post('quantity');
             $save['shippable'] = \CI::input()->post('shippable');
             $save['taxable'] = \CI::input()->post('taxable');
+            $save['options'] = (\CI::input()->post('options'))?\CI::input()->post('options'):'{}';
             
             $post_images = \CI::input()->post('images');
 
             foreach($data['groups'] as $group)
             {
-                $save['enabled_'.$group->id] = \CI::input()->post('enabled_'.$group->id);
-                $save['price_'.$group->id] = \CI::input()->post('price_'.$group->id);
-                $save['saleprice_'.$group->id] = \CI::input()->post('saleprice_'.$group->id);
+                $save['enabled_'.$group->id] = (\CI::input()->post('enabled_'.$group->id)) ? 1 : 0;
             }
 
             $save['slug'] = $slug;
@@ -406,20 +394,11 @@ class AdminProducts extends Admin {
                 $save['primary_category'] = \CI::input()->post('primary_category');
             }
 
-
-            // format options
-            $options = [];
-            if(\CI::input()->post('option'))
-            {
-                foreach (\CI::input()->post('option') as $option)
-                {
-                    $options[]  = $option;
-                }
-
-            }
-
             // save product
-            $product_id = \CI::Products()->save($save, $options, $categories);
+            $product_id = \CI::Products()->save($save, $categories);
+
+            //save pricing
+            \CI::Products()->savePricing($product_id, \CI::input()->post('pricing'));
 
             // add file associations
             // clear existsing
@@ -445,7 +424,7 @@ class AdminProducts extends Admin {
     {
         $this->product_id = $id;
         \CI::load()->library('form_validation');
-        \CI::load()->model(array('ProductOptions', 'Categories'));
+        \CI::load()->model('Categories');
         \CI::form_validation()->set_error_delimiters('<div class="error">', '</div>');
 
         $data['categories'] = \CI::Categories()->get_categories_tiered();
@@ -468,6 +447,7 @@ class AdminProducts extends Admin {
         $data['images'] = [];
         $data['product_categories'] = [];
         $data['product_files'] = [];
+        $data['options'] = '{}';
 
         foreach($data['groups'] as $group)
         {
@@ -480,8 +460,6 @@ class AdminProducts extends Admin {
         if ($id)
         {
 
-            // get product & options data
-            $data['ProductOptions'] = \CI::ProductOptions()->getProductOptions($id);
             $product = \CI::Products()->find($id, true);
 
             //if the product does not exist, redirect them to the product list with an error
@@ -495,19 +473,21 @@ class AdminProducts extends Admin {
             $this->product_name = \CI::input()->post('slug', $product->slug);
 
             //set values to db values
-            $data['id']                 = $id;
-            $data['sku']                = $product->sku;
-            $data['primary_category']   = $product->primary_category;
-            $data['name']               = $product->name;
-            $data['seo_title']          = $product->seo_title;
-            $data['meta']               = $product->meta;
-            $data['slug']               = $product->slug;
-            $data['description']        = $product->description;
-            $data['excerpt']            = $product->excerpt;
-            $data['quantity']           = $product->quantity;
-            $data['taxable']            = $product->taxable;
-            $data['fixed_quantity']     = $product->fixed_quantity;
-            $data['is_giftcard']        = $product->is_giftcard;
+            $data['id'] = $id;
+            $data['sku'] = $product->sku;
+            $data['primary_category'] = $product->primary_category;
+            $data['name'] = $product->name;
+            $data['seo_title'] = $product->seo_title;
+            $data['meta'] = $product->meta;
+            $data['slug'] = $product->slug;
+            $data['description'] = $product->description;
+            $data['excerpt'] = $product->excerpt;
+            $data['quantity'] = $product->quantity;
+            $data['taxable'] = $product->taxable;
+            $data['fixed_quantity'] = $product->fixed_quantity;
+            $data['is_giftcard'] = $product->is_giftcard;
+            $data['options'] = (empty($product->options))?'{}':$product->options;
+            
             foreach($data['groups'] as $group)
             {
                 $data['enabled_'.$group->id] = $product->{'enabled_'.$group->id};
@@ -523,8 +503,8 @@ class AdminProducts extends Admin {
                     $data['product_categories'][] = $product_category->id;
                 }
 
-                $data['related_products']   = $product->related_products;
-                $data['images']             = (array)json_decode($product->images);
+                $data['related_products'] = $product->related_products;
+                $data['images'] = (array)json_decode($product->images);
             }
         }
 
@@ -547,7 +527,6 @@ class AdminProducts extends Admin {
         \CI::form_validation()->set_rules('excerpt', 'lang:excerpt', 'trim');
         \CI::form_validation()->set_rules('taxable', 'lang:taxable', 'trim|numeric');
         \CI::form_validation()->set_rules('fixed_quantity', 'lang:fixed_quantity', 'trim|numeric');
-        
         \CI::form_validation()->set_rules('option[giftcard_values]', 'lang:giftcard_values', 'required');
         foreach($data['groups'] as $group)
         {
@@ -567,11 +546,8 @@ class AdminProducts extends Admin {
         }
         if(\CI::input()->post('submit'))
         {
-            //reset the product options that were submitted in the post
-            $data['ProductOptions'] = \CI::input()->post('option');
             $data['product_categories'] = \CI::input()->post('categories');
             $data['images'] = \CI::input()->post('images');
-
         }
 
         if (\CI::form_validation()->run() == FALSE)
@@ -591,7 +567,7 @@ class AdminProducts extends Admin {
                 $slug = \CI::input()->post('name');
             }
 
-            $slug   = url_title(convert_accented_characters($slug), '-', TRUE);
+            $slug = url_title(convert_accented_characters($slug), '-', TRUE);
 
             //validate the slug
             $slug = ($id) ? \CI::Products()->validate_slug($slug, $product->id) : \CI::Products()->validate_slug($slug);
@@ -607,9 +583,7 @@ class AdminProducts extends Admin {
             
             foreach($data['groups'] as $group)
             {
-                $save['enabled_'.$group->id] = \CI::input()->post('enabled_'.$group->id);
-                $save['price_'.$group->id] = '0.00';
-                $save['saleprice_'.$group->id] = '0.00';
+                $save['enabled_'.$group->id] = (\CI::input()->post('enabled_'.$group->id)) ? 1 : 0;
             }
 
             $save['is_giftcard'] = 1;
@@ -668,79 +642,73 @@ class AdminProducts extends Admin {
             {
                 $save['primary_category'] = \CI::input()->post('primary_category');
             }
-
-
-            // format options
-            $options = [];
-            array_push($options, [
-                                    'type' => 'textfield',
-                                    'name' => 'from',
-                                    'required' => 1,
-                                    'values' =>
-                                    [
-                                        '0' =>
-                                        [
-                                            'name' => 'from',
-                                            'value' => '',
-                                            'price' => 0,
-                                            'limit' => 0
-                                        ]
-                                    ]
-                                ]);
-
-            array_push($options, [
-                                    'type' => 'textfield',
-                                    'name' => 'to_email',
-                                    'required' => 1,
-                                    'values' =>
-                                    [
-                                        '0' =>
-                                        [
-                                            'name' => 'to_email',
-                                            'value' => '',
-                                            'price' => 0,
-                                            'limit' => 0
-                                        ]
-                                    ]
-                                ]);
-
-            array_push($options, [
-                                    'type' => 'textarea',
-                                    'name' => 'personal_message',
-                                    'required' => 1,
-                                    'values' =>
-                                    [
-                                        '0' =>
-                                        [
-                                            'name' => 'personal_message',
-                                            'value' => '',
-                                            'price' => 0
-                                        ]
-                                    ]
-                                ]);
-
-            $giftcard_values = [];
-            $postedValues = \CI::input()->post('option[giftcard_values]');
-            if($postedValues)
-            {
-                foreach($postedValues as $giftcard_value)
-                {
-                    array_push($giftcard_values, ['name'=> 'beginning_amount', 'value' => $giftcard_value, 'weight'=>'', 'price' => $giftcard_value]);
-                }
-            }
             
+            $options = (object) [
+                "1"=> (object)[
+                    "type"=>"textfield",
+                    "name"=>"from",
+                    "required"=>1,
+                    "values" => (object)[
+                        "1" => (object)[
+                            "name" => "from",
+                            "value" => "",
+                            "price" => 0,
+                            "weight" => 0
+                        ]
+                    ]
+                ],
+                "2" => (object) [
+                    "type"=>"textfield",
+                    "name"=>"to_email",
+                    "required"=>1,
+                    "values" => (object)[
+                        "1" => (object) [
+                            "name" => "to_email",
+                            "value" => "",
+                            "price" => 0,
+                            "weight" => 0
+                        ]
+                    ]
+                ],
+                "3" => (object) [
+                    "type"=>"textarea",
+                    "name"=>"personal_message",
+                    "required"=>0,
+                    "values" => (object)[
+                        "1" => (object)[
+                            "name" => "personal_message",
+                            "value" => "",
+                            "price" => 0,
+                            "weight" => 0
+                        ]
+                    ]
+                ],
+                //"4" => (object) [
+                //    "type"=>"droplist",
+                //    "name"=>"beginning_amount",
+                //    "required"=>1
+                //]
+            ];
+            $options->{"4"} = (object) [
+                    "type"=>"droplist",
+                    "name"=>"beginning_amount",
+                    "required"=>1
+                ];
+            $options->{"4"}->values = (object)[];
 
-            array_push($options, [
-                                    'type' => 'droplist',
-                                    'name' => 'beginning_amount',
-                                    'required' => 1,
-                                    'values' => $giftcard_values
-                                ]);
+            $pvCount = 1;
+            $postedValues = \CI::input()->post('option[giftcard_values]');
 
+            foreach($postedValues as $pv)
+            {
+                $options->{"4"}->values->{$pvCount} = (object)['name'=> 'beginning_amount', 'value' => $pv, 'weight'=>0, 'price' => $pv];
+                $pvCount++;
+            }
+
+            $save['options'] = json_encode($options);
 
             // save product
-            $product_id = \CI::Products()->save($save, $options, $categories);
-
+            $product_id = \CI::Products()->save($save, $categories);
 
             \CI::session()->set_flashdata('message', lang('message_saved_giftcard_product'));
 

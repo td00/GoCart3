@@ -8,7 +8,7 @@ class Front extends \GoCart\Controller {
 
         //add the theme to the packages path
         \CI::load()->add_package_path(FCPATH.'themes/'.config_item('theme').'/');
-        \CI::load()->model(array('Pages', 'Customers','Login', 'Categories', 'Coupons', 'Locations', 'Products', 'ProductOptions', 'DigitalProducts'));
+        \CI::load()->model(array('Pages', 'Customers','Login', 'Categories', 'Coupons', 'Locations', 'Products', 'DigitalProducts'));
 
         //load in some base information
         \CI::load()->helper('theme');

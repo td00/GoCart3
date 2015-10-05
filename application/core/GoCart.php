@@ -362,7 +362,7 @@ class GoCart {
         $product->images = json_encode($product->images); //reencode the images
 
         //remove the following fields
-        $remove = ['id', 'primary_category', 'quantity', 'related_products', 'google_feed', 'seo_title', 'meta'];
+        $remove = ['id', 'pricing', 'primary_category', 'quantity', 'related_products', 'google_feed', 'seo_title', 'meta'];
 
         foreach($remove as $r)
         {
@@ -372,6 +372,97 @@ class GoCart {
         return $product;
     }
 
+    private function setOptions($product, $values)
+    {
+        //the save array
+        $saveOptions = [];
+
+        //option error vars
+        $this->optionError = false;
+        $optionErrorMessage = lang('option_error').'<br/>';
+
+        //json decode
+        $options = json_decode($product->options);
+
+        $optionCount = 0;
+
+        //set tabulated weight and price defaults
+        $product->options_price = 0;
+        $product->options_weight = 0;
+
+        foreach($options as $option)
+        {
+            //check for the existence / requirement of an option value
+            if((bool)$option->required && empty($values[$optionCount]))
+            {
+                $this->optionError = true;
+                $optionErrorMessage .= "- ". $option->name .'<br/>';
+                $optionCount++;
+                continue;
+            }
+            elseif(array_key_exists($optionCount, $values))
+            {
+                $value = $values[$optionCount];
+            }
+            else
+            {
+                $optionCount++;
+                continue;
+            }
+
+
+            //create options to save to the database in case we get past the errors
+            if($option->type == 'checklist')
+            {
+                foreach($value as $v)
+                {
+                    foreach($option->values as $optionKey=>$optionValue)
+                    {
+                        if($optionKey == $v)
+                        {
+                            $optionValue->label = $option->name;
+                            $saveOptions[] = $optionValue;
+                            
+                            $product->options_price += $optionValue->price;
+                            $product->options_weight += $optionValue->weight;
+                        }
+                    }
+                }
+            }
+            elseif(in_array($option->type, ['droplist', 'radiolist']))
+            {
+                $option->values->{$value}->label = $option->name;
+                $saveOptions[] = $option->values->{$value};
+                
+                $product->options_price += $option->values->{$value}->price;
+                $product->options_weight += $option->values->{$value}->weight;
+            }
+            else
+            {
+                $option->values->{'1'}->value = $value;
+                $option->values->{'1'}->label = $option->name;
+                $saveOptions[] = $option->values->{'1'};
+
+                $product->options_price += $option->values->{'1'}->price;
+                $product->options_weight += $option->values->{'1'}->weight;
+
+            }
+            $optionCount++;
+        }
+
+        if($this->optionError)
+        {
+            $this->optionError = $optionErrorMessage;
+            return false;
+
+        }
+        else
+        {
+            $product->options = json_encode($saveOptions);
+            return $product;
+        }
+    }
+
     public function insertItem($data=[])
     {
         $product = false;
@@ -379,6 +470,7 @@ class GoCart {
         $postedOptions = false;
         $downloads = false;
         $combine = false; //is this an item from a separate cart being combined?
+        $pricing = false;
 
         extract($data);
 
@@ -391,8 +483,20 @@ class GoCart {
                 return json_encode(['error'=>lang('error_product_not_found')]);
             }
 
+            //save pricing
+            $pricing = $product->pricing;
+
             //Clean up the product for the orderItems database
             $product = $this->cleanProduct($product);
+
+            //validate the options submitted with the product
+            $product = $this->setOptions($product, $postedOptions);
+            
+            //if option error is set then fail and send the message
+            if($this->optionError)
+            {
+                return json_encode(['error'=>$this->optionError]);
+            }
 
             //get downloadable files
             $downloads = \CI::DigitalProducts()->getAssociationsByProduct($product->product_id);
@@ -401,7 +505,7 @@ class GoCart {
         $update = false;
         if(empty($product->hash))
         {
-            $product->hash = md5(json_encode($product).json_encode($postedOptions));
+            $product->hash = md5(json_encode($product));
 
             //set defaults for new items
             $product->coupon_discount = 0;
@@ -415,7 +519,6 @@ class GoCart {
                 //this is an update
                 $update = true;
             }
-            
         }
 
         $product->order_id = $this->cart->id;
@@ -433,7 +536,6 @@ class GoCart {
                 {
                     $qty_count = $qty_count + $item->quantity;
                 }
-
             }
 
             if($item->hash == $product->hash && !$update) //if this is an update skip this step
@@ -443,13 +545,16 @@ class GoCart {
             }
         }
 
-        if(!config_item('allow_os_purchase') && (bool)$product->track_stock)
+        if($product->type == 'product')
         {
-            $stock = \CI::Products()->getProduct($product->product_id);
-
-            if($stock->quantity < $qty_count)
+            if(!config_item('allow_os_purchase') && (bool)$product->track_stock)
             {
-                return json_encode(['error'=>sprintf(lang('not_enough_stock'), $stock->name, $stock->quantity)]);
+                $stock = \CI::Products()->getProduct($product->product_id);
+
+                if($stock->quantity < $qty_count)
+                {
+                    return json_encode(['error'=>sprintf(lang('not_enough_stock'), $stock->name, $stock->quantity)]);
+                }
             }
         }
 
@@ -462,129 +567,43 @@ class GoCart {
             $product->quantity = $quantity;
         }
 
-        //create save options array here for use later.
-        $saveOptions = [];
-
-        if(!$update && $product->product_id) // if not an update or non-product, try and run the options
+        if($product->type == 'product')
         {
-            //set the base "total_price"
-            if($product->saleprice > 0)
+            $product = $this->setPricing($product, $pricing, $quantity);
+            
+            if(!$update && $product->product_id) // if not an update or non-product, try and run the options
             {
-                $product->total_price = $product->saleprice;
+                //set the base "total_price"
+                if($product->sale_price > 0)
+                {
+                    $product->total_price = $product->sale_price;
+                }
+                else
+                {
+                    $product->total_price = $product->price;
+                }
             }
             else
             {
-                $product->total_price = $product->price;
-            }
-
-            //set base "total_weight"
-            $product->total_weight = $product->weight;
-
-            $productOptions = \CI::ProductOptions()->getProductOptions($product->product_id);
-
-            //option error vars
-            $optionError = false;
-            $optionErrorMessage = lang('option_error').'<br/>';
-
-            foreach($productOptions as $productOption)
-            {
-                // are we missing any required values?
-                $optionValue = false;
-                if(!empty($postedOptions[$productOption->id]))
+                //this is an update. update the price
+                if($product->sale_price > 0)
                 {
-                    $optionValue = $postedOptions[$productOption->id];
+                    $product->total_price = $product->sale_price;
                 }
-
-                if((int)$productOption->required && empty($optionValue))
+                else
                 {
-                    $optionError = true;
-                    $optionErrorMessage .= "- ". $productOption->name .'<br/>';
-                    continue; // don't bother processing this particular option any further
-                }
-
-                if(empty($optionValue))
-                {
-                    //empty? Move along, nothing to see here.
-                    continue;
-                }
-
-                //create options to save to the database in case we get past the errors
-                if($productOption->type == 'checklist')
-                {
-                    if(is_array($optionValue))
-                    {
-                        foreach($optionValue as $ov)
-                        {
-                            foreach($productOption->values as $productOptionValue)
-                            {
-                                if($productOptionValue->id == $ov)
-                                {
-                                    $saveOptions[] = [
-                                        'option_name'=>$productOption->name,
-                                        'value'=>$productOptionValue->value,
-                                        'price'=>$productOptionValue->price,
-                                        'weight'=>$productOptionValue->weight
-                                    ];
-                                    $product->total_weight += $productOptionValue->weight;
-                                    $product->total_price += $productOptionValue->price;
-                                }
-                            }
-                        }
-                    }
-                }
-                else //every other form type we support
-                {
-                    $saveOption = [];
-                    if($productOption->type == 'textfield' || $productOption->type == 'textarea')
-                    {
-                        $productOptionValue = $productOption->values[0];
-                        $productOptionValue->value = $optionValue;
-                    }
-                    else //radios and checkboxes
-                    {
-                        foreach($productOption->values as $ov)
-                        {
-                            if($ov->id == $optionValue)
-                            {
-                                $productOptionValue = $ov;
-                                break;
-                            }
-                        }
-                        $saveOption['value'] = $optionValue;
-                    }
-                    if(isset($productOptionValue))
-                    {
-                        $saveOption['option_name'] = $productOption->name;
-                        $saveOption['price'] = $productOptionValue->price;
-                        $saveOption['weight'] = $productOptionValue->weight;
-                        $saveOption['value'] = $productOptionValue->value;
-
-                        //add it to the array;
-                        $saveOptions[] = $saveOption;
-
-                        //update the total weight and price
-                        $product->total_weight += $productOptionValue->weight;
-                        $product->total_price += $productOptionValue->price;
-                    }
+                    $product->total_price = $product->price;
                 }
             }
 
-            if($optionError)
-            {
-                return json_encode(['error'=>$optionErrorMessage]);
-            }
+            //set total Price & Weight
+            $product->total_price += $product->options_price;
+            $product->total_weight = $product->options_weight + $product->weight;
         }
 
         //save the product
         $product_id = \CI::Orders()->saveItem((array)$product);
 
-        //save the options if we have them
-        foreach($saveOptions as $saveOption)
-        {
-            $saveOption['order_item_id'] = $product_id;
-            $saveOption['order_id'] = $this->cart->id;
-            \CI::Orders()->saveItemOption($saveOption);
-        }
         if($update)
         {
             foreach($this->items as $key => $item)
@@ -599,7 +618,6 @@ class GoCart {
         {
             $product->id = $product_id;
             $this->items[] = $product;
-
 
             //update file downloads
             if($downloads)
@@ -914,7 +932,7 @@ class GoCart {
             $total = $total+$math;
         }
         $total = round($total, 2);
-        //$this->cart->grandtotal = $total;
+
         return $total;
     }
 
@@ -1056,6 +1074,25 @@ class GoCart {
         return $count;
     }
 
+
+    //get the correct pricing for a product
+    private function setPricing($product, $pricing, $quantity)
+    {
+        //set pricing
+        $pricing = (!$pricing)?\CI::Products()->pricing($product->product_id, $this->customer->group_id):$pricing;
+
+        foreach($pricing as $price)
+        {
+            if($quantity >= $price->from_quantity)
+            {
+                $product->sale_price = $price->sale_price;
+                $product->price = $price->price;
+            }
+        }
+
+        return $product;
+    }
+
     //if a long time has passed, or the customer logs in, reprice items
     public function repriceItems()
     {
@@ -1079,32 +1116,33 @@ class GoCart {
                     continue;
                 }
 
+                $this->setPricing($product, $product->pricing, $item->quantity);
+
                 //Clean up the product for the orderItems database
                 $product = $this->cleanProduct($product);
 
+
                 $totalPrice = 0;
 
-                if($product->{'saleprice_'.$this->customer->group_id} > 0)
+                if($product->sale_price > 0)
                 {
                     //if it's on sale, give it the sale price
-                    $totalPrice = $product->{'saleprice_'.$this->customer->group_id};
+                    $totalPrice = $product->sale_price;
                 }
                 else
                 {
                     //not on sale give it the normal price
-                    $totalPrice = $product->{'price_'.$this->customer->group_id};
+                    $totalPrice = $product->price;
                 }
 
-                if(isset($options[$item->id]))
-                {
-                    foreach($options[$item->id] as $option)
-                    {
-                        $totalPrice += $option->price;
-                    }
-                }
+                $totalPrice += $item->options_price;
                 
                 $product->id = $item->id;
                 $product->hash = $item->hash;
+                $product->options_price = $item->options_price;
+                $product->options_weight = $item->options_weight;
+                $product->options_weight = $item->options_weight;
+                $product->options = $item->options;
 
                 $product->total_price = $totalPrice; //updated price
 

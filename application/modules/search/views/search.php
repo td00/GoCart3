@@ -25,8 +25,7 @@
 
 <?php endif;
     
-    $this->show('categories/products', ['products'=>$products]);
-    //include(__DIR__.'/products.php');?>
+    $this->show('products', ['products'=>$products]);?>
 
     <div class="text-center pagination">
         <?php echo CI::pagination()->create_links();?>

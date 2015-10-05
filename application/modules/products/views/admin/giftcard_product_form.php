@@ -1,37 +1,110 @@
-<?php echo pageHeader(lang('product_form')); ?>
+<?php echo pageHeader(lang('giftcard_form')); ?>
 
-<?php $GLOBALS['option_value_count'] = 0;?>
-<style type="text/css">
-    .sortable { list-style-type: none; margin: 0; padding: 0; width: 100%; }
-    .sortable li { margin: 0 3px 3px 3px; padding: 0.4em; padding-left: 1.5em; height: 18px; }
-    .sortable li>col-md- { position: absolute; margin-left: -1.3em; margin-top:.4em; }
-</style>
+<script type="text/template" id="giftcardTemplate">
+    <div style="margin-top:10px">
+        <div class="input-group">
+            <input type="text" name="option[giftcard_values][]" value="{{price}}" class="form-control"/>
+            <div class="input-group-btn">
+                <button type="button" class="btn btn-danger" onclick="remove_giftcard_value(this);"><i class="icon-times"></i></button>
+            </div>
+        </div>
+    </div>
+</script>
 
-<script type="text/javascript">
-//<![CDATA[
+<script type="text/template" id="imageTemplate">
+    <div class="row gc_photo" id="gc_photo_{{id}}" style="background-color:#fff; border-bottom:1px solid #ddd; padding-bottom:20px; margin-bottom:20px;">
+        <div class="col-md-2">
+            <input type="hidden" name="images[{{id}}][filename]" value="{{filename}}"/>
+            <img class="gc_thumbnail" src="<?php echo base_url('uploads/images/thumbnails/{{filename}}');?>" style="padding:5px; border:1px solid #ddd"/>
+        </div>
+        <div class="col-md-10">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <input name="images[{{id}}][alt]" value="{{alt}}" class="form-control" placeholder="<?php echo lang('alt_tag');?>"/>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="checkbox">
+                        <label>
+                            <input type="radio" name="primary_image" value="{{id}}" {{#primary}}checked="checked"{{/primary}}/> <?php echo lang('main_image');?>
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <a onclick="return remove_image($(this));" rel="{{id}}" class="btn btn-danger pull-right"><i class="icon-times "></i></a>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <label><?php echo lang('caption');?></label>
+                    <textarea name="images[{{id}}][caption]" class="form-control" rows="3">{{caption}}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+</script>
+
+<script>
+var giftcardTemplate = $('#giftcardTemplate').html();
+var imageTemplate = $('#imageTemplate').html();
+var images = <?php echo json_encode($images);?>
 
 $(document).ready(function() {
-    $(".sortable").sortable();
-    $(".sortable > col-md-").disableSelection();
-    //if the image already exists (phpcheck) enable the selector
-
-    <?php if($id) : ?>
-    //options related
-    var ct  = $('#option_list').children().size();
-    // set initial count
-    option_count = <?php echo count($ProductOptions); ?>;
-    <?php endif; ?>
-
     photos_sortable();
+    //if the image already exists (phpcheck) enable the selector
+   
+    var giftcard_values = <?php echo $options ?>;
+
+    $.each(giftcard_values[4].values, function(key,val) {
+        add_giftcard_values(val.price);
+    });
+    
+    $.each(images, function(key,val) {
+        addProductImage(key, val.filename, val.alt, val.primary, val.caption);
+    }); 
 });
 
-function addProduct_image(data)
+function remove_giftcard_value(elem)
 {
-    p   = data.split('.');
+    if(confirm('<?php echo lang('confirm_remove_giftcard_value');?>'))
+    {
+        $(elem).parent().parent().parent().remove();
+    }
+}
 
-    var photo = '<?php add_image("'+p[0]+'", "'+p[0]+'.'+p[1]+'", '', '', '', base_url('uploads/images/thumbnails'));?>';
-    $('#gc_photos').append(photo);
-    $('#gc_photos').sortable('destroy');
+function add_giftcard_values(value)
+{
+    var view = {price:value};
+    var output = Mustache.render(giftcardTemplate, view);
+
+    $('#optionsContainer').append(output);
+}
+
+function photos_sortable()
+{
+    $('#gc_photos').sortable({
+        handle : '.gc_thumbnail',
+        items: '.gc_photo',
+        axis: 'y',
+        scroll: true
+    });
+}
+
+function addProductImage(id, filename, alt, primary, caption)
+{
+    view = {
+        id:id,
+        filename:filename,
+        alt:alt,
+        primary:primary,
+        caption:caption
+    }
+
+    var output = Mustache.render(imageTemplate, view);
+
+    $('#gc_photos').append(output);
+    $('#gc_photos').sortable('refresh');
     photos_sortable();
 }
 
@@ -61,8 +134,6 @@ function remove_option(id)
         $('#option-'+id).remove();
     }
 }
-
-//]]>
 </script>
 
 
@@ -171,63 +242,15 @@ function remove_option(id)
 
                         <div class="clearfix"></div>
 
-                        <table id="values_container" class="table table-striped">
-                            <thead>
-                                <tr></th></th></tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                $counter = 0;
-                                if(!empty($ProductOptions))
-                                
-                                {
-                                    
-                                    foreach($ProductOptions as $po)
-                                    {
-                                        $po = (object)$po;
-                                        if(empty($po->required)){$po->required = false;
-                                    }
-
-                                    if($po->type == 'droplist')
-                                    { 
-                                        if($po->values):
-                                            foreach($po->values as $value)
-                                            {
-                                                $value = (object)$value;
-                                                add_option_value($po, $counter++, $value->price);
-                                                $GLOBALS['option_value_count']++;
-                                            }
-                                        endif;
-                                    }
-                                        $counter++;
-                                    }
-                                }
-                                ?>
-                            </tbody>
-                        </table>
+                        <div id="optionsContainer"></div>
                     </div>
                 </div>
 
                 <div class="tab-pane" id="product_photos">
-                    
                     <iframe id="iframe_uploader" src="<?php echo site_url('admin/products/product_image_form');?>" style="height:75px; width:100%; border:0px;"></iframe>
-
-                    <div id="gc_photos">
-
-                    <?php
-                    foreach($images as $photo_id=>$photo_obj)
-                    {
-                        if(!empty($photo_obj))
-                        {
-                            $photo = (array)$photo_obj;
-                            add_image($photo_id, $photo['filename'], $photo['alt'], $photo['caption'], isset($photo['primary']));
-                        }
-
-                    }
-                    ?>
-                    </div>
-
+                    <div id="gc_photos"></div>
                 </div>
+
             </div>
             <button type="submit" class="btn btn-primary"><?php echo lang('save');?></button>
         </div>
@@ -258,133 +281,3 @@ function remove_option(id)
         </div>
     </div>
 </form>
-
-<?php
-function add_image($photo_id, $filename, $alt, $caption, $primary=false)
-{
-
-    ob_start();
-    ?>
-    <div class="row gc_photo" id="gc_photo_<?php echo $photo_id;?>" style="background-color:#fff; border-bottom:1px solid #ddd; padding-bottom:20px; margin-bottom:20px;">
-        <div class="col-md-2">
-            <input type="hidden" name="images[<?php echo $photo_id;?>][filename]" value="<?php echo $filename;?>"/>
-            <img class="gc_thumbnail" src="<?php echo base_url('uploads/images/thumbnails/'.$filename);?>" style="padding:5px; border:1px solid #ddd"/>
-        </div>
-        <div class="col-md-10">
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="form-group">
-                        <input name="images[<?php echo $photo_id;?>][alt]" value="<?php echo $alt;?>" class="form-control" placeholder="<?php echo lang('alt_tag');?>"/>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="checkbox">
-                        <label>
-                            <input type="radio" name="primary_image" value="<?php echo $photo_id;?>" <?php if($primary) echo 'checked="checked"';?>/> <?php echo lang('main_image');?>
-                        </label>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <a onclick="return remove_image($(this));" rel="<?php echo $photo_id;?>" class="btn btn-danger pull-right"><i class="icon-times "></i></a>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-12">
-                    <label><?php echo lang('caption');?></label>
-                    <textarea name="images[<?php echo $photo_id;?>][caption]" class="form-control" rows="3"><?php echo $caption;?></textarea>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <?php
-    $stuff = ob_get_contents();
-
-    ob_end_clean();
-
-    echo replace_newline($stuff);
-}
-
-//this makes it easy to use the same code for initial generation of the form as well as javascript additions
-function replace_newline($string) {
-  return trim((string)str_replace(array("\r", "\r\n", "\n", "\t"), ' ', $string));
-}
-?>
-
-<style>
-.tree > ul > li {
-    float: left;
-    width: 50%;
-}
-</style>
-
-<script type="text/javascript">
-
-function photos_sortable()
-{
-    $('#gc_photos').sortable({
-        handle : '.gc_thumbnail',
-        items: '.gc_photo',
-        axis: 'y',
-        scroll: true
-    });
-}
-
-<?php
-function add_option_value($po, $count, $price)
-{
-    ob_start();
-    ?>
-    <tr id="giftcard_value_<?php echo $count;?>">
-        <td>
-            <div class="input-group">
-                <input type="text" name="option[giftcard_values][<?php echo $count;?>]" value="<?php echo $price ?>" class="form-control"/>
-                <div class="input-group-btn">
-                    <button type="button" class="btn btn-danger" onclick="remove_giftcard_value(<?php echo $count;?>);"><i class="icon-times"></i></button>
-                </div>
-            </div>
-        </td>
-    </tr>
-    <?php
-    $stuff = ob_get_contents();
-
-    ob_end_clean();
-
-    echo replace_newline($stuff);
-}
-?>
-
-var option_count = <?php echo $counter?>;
-    
-function add_giftcard_values()
-{
-    option_count ++;
-    $('#values_container tbody').append('<?php add_option_value('', "'+option_count+'", '');?>')
-}
-
-function remove_giftcard_value(id)
-{
-    if(confirm('<?php echo lang('confirm_remove_giftcard_value');?>'))
-    {
-        $('#giftcard_value_'+id).remove();
-    }
-}
-
-
-function photos_sortable()
-{
-    $('#gc_photos').sortable({
-        handle : '.gc_thumbnail',
-        items: '.gc_photo',
-        axis: 'y',
-        scroll: true
-    });
-}
-//]]>
-</script>
-<style>
-.tree > ul > li {
-float: left;
-width: 50%;
-}
-</style>

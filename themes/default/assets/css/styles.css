@@ -311,6 +311,14 @@ label.checklist input, label.radiolist input{
     margin-right:10px;
 }
 
+.productPage {
+    position:relative;
+}
+
+#productPages {
+    text-align:center;
+}
+
 .categoryDescription {
     padding:10px 0px 30px;
 }
@@ -378,13 +386,17 @@ label.checklist input, label.radiolist input{
     height: auto;
 }
 
-.categoryItem:hover .categoryItemHover .look{
+.categoryItem:hover .categoryItemHover .look {
     position:absolute;
     font-size:28px;
     font-weight: bold;
     left:0px;
     top:50%;
     width:100%;
+}
+
+.categoryItem:hover .categoryItemHover .look small {
+    font-size:60%;
 }
 
 .categoryItem .categoryItemDetails {
@@ -803,6 +815,12 @@ div.category-boxes p {
 
 div.productsFilter {
   margin: 10px 0;
+  text-align:right;
+}
+
+div.productsFilter select, div.productsFilter label {
+    max-width:200px;
+    display:inline-block;
 }
 
 .productsFilter .control-label {

@@ -40,7 +40,7 @@ class AdminCategories extends Admin {
         $config['max_height'] = '768';
         $config['encrypt_name'] = true;
         \CI::load()->library('upload', $config);
-        
+        \CI::load()->helper('inflector');
         
         $this->category_id = $id;
         \CI::load()->helper('form');
@@ -49,7 +49,17 @@ class AdminCategories extends Admin {
         
         $data['categories'] = \CI::Categories()->getCategoryOptionsMenu($id);
         $data['page_title'] = lang('category_form');
-        
+        $data['templates'] = ['default'=>lang('default')];
+
+        //get the templates from the folder
+        $templates = get_filenames(FCPATH.'themes/'.config_item('theme').'/views/categories/');
+        foreach($templates as $template)
+        {
+            $templateName = basename($template,'.php');
+            $data['templates'][$templateName] = humanize($templateName);
+            
+        }
+
         //default values are empty if the customer is new
         $data['id'] = '';
         $data['name'] = '';
@@ -62,6 +72,7 @@ class AdminCategories extends Admin {
         $data['meta'] = '';
         $data['parent_id'] = 0;
         $data['error'] = '';
+        $data['template'] = 'default';
         
         foreach($data['groups'] as $group)
         {
@@ -96,6 +107,8 @@ class AdminCategories extends Admin {
             $data['image'] = $category->image;
             $data['seo_title'] = $category->seo_title;
             $data['meta'] = $category->meta;
+            $data['template'] = $category->template;
+
             foreach($data['groups'] as $group)
             {
                 $data['enabled_'.$group->id] = $category->{'enabled_'.$group->id};
@@ -112,6 +125,7 @@ class AdminCategories extends Admin {
         \CI::form_validation()->set_rules('image', 'lang:image', 'trim');
         \CI::form_validation()->set_rules('seo_title', 'lang:seo_title', 'trim');
         \CI::form_validation()->set_rules('meta', 'lang:meta', 'trim');
+        \CI::form_validation()->set_rules('template', 'lang:template', 'trim|required');
         
         foreach($data['groups'] as $group)
         {
@@ -237,7 +251,9 @@ class AdminCategories extends Admin {
             $save['sequence'] = intval(\CI::input()->post('sequence'));
             $save['seo_title'] = \CI::input()->post('seo_title');
             $save['meta'] = \CI::input()->post('meta');
+            $save['template'] = \CI::input()->post('template');
             $save['slug'] = $slug;
+
             foreach($data['groups'] as $group)
             {
                 $save['enabled_'.$group->id] = \CI::input()->post('enabled_'.$group->id);

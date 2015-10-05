@@ -248,16 +248,6 @@ Class Customers extends CI_Model
                     'constraint'=>'1',
                     'default'=>'1'
                 ],
-                'price_'.$groupId=>[
-                    'type'=>'DECIMAL', 
-                    'constraint'=>'10,2',
-                    'default'=>'0.00'
-                ],
-                'saleprice_'.$groupId=>[
-                    'type'=>'DECIMAL', 
-                    'constraint'=>'10,2',
-                    'default'=>'0.00'
-                ]
             ];
             CI::dbforge()->add_column('products', $fields);
             CI::dbforge()->add_column('order_items', $fields);

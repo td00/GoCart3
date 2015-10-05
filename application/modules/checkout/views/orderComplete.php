@@ -79,13 +79,25 @@
                             <div class="orderItemName"><?php echo $product->name; ?></div>
                             <div class="orderItemDescription">
                                 <?php
-                                if(isset($order->options[$product->id])):
+                                $options = json_decode($product->options);
+                                foreach($options as $option):?>
+                                    <div class="orderItemOption">
+                                        <strong>
+                                        <?php
+                                        if($product->is_giftcard)
+                                        {
+                                            echo lang('gift_card_'.$option->label);
+                                        }
+                                        else
+                                        {
+                                            echo $option->label;
+                                        }
 
-                                    foreach($order->options[$product->id] as $option):?>
-                                        <div class="orderItemOption"><strong><?php echo ($product->is_giftcard) ? lang('gift_card_'.$option->option_name) : $option->option_name;?> :</strong> <?php echo($option->price > 0)?'['.format_currency($option->price).']':'';?> <?php echo $option->value;?></div>
-                                    <?php endforeach;
+                                        echo '</strong> : '.$option->value.' ';
+                                        echo($option->price > 0)?'['.format_currency($option->price).']':'';?>
 
-                                endif;
+                                    </div>
+                                <?php endforeach;
 
                                 if(isset($order->files[$product->id]))
                                 {

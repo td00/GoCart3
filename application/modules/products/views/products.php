@@ -29,7 +29,7 @@
             <div onclick="window.location = '<?php echo site_url('/product/'.$product->slug); ?>'" class="categoryItem" >
                 <?php if((bool)$product->track_stock && $product->quantity < 1 && config_item('inventory_enabled')):?>
                     <div class="categoryItemNote yellow"><?php echo lang('out_of_stock');?></div>
-                <?php elseif($product->saleprice > 0):?>
+                <?php elseif($product->sale_price > 0):?>
                     <div class="categoryItemNote red"><?php echo lang('on_sale');?></div>
                 <?php endif;?>
                 
@@ -42,7 +42,8 @@
                 <?php if(!$product->is_giftcard): //do not display this if the product is a giftcard?>
                 <div class="categoryItemHover">
                     <div class="look">
-                        <?php echo ( $product->saleprice>0?format_currency($product->saleprice):format_currency($product->price) );?>
+                        <?php echo ($product->tiers > 1)?'<small>'.lang('starting_at').'</small><br>':'';?>
+                        <?php echo ( $product->sale_price>0?format_currency($product->sale_price):format_currency($product->price) );?>
                     </div>
                 </div>
                 <?php endif;?>
